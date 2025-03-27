@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:5000/api"; // Asegúrate de que esta URL coincida con la del backend
+const BASE_URL = "http://localhost:5000/api";
 
 /**
  * Fetches interview questions from the backend.
