@@ -1,18 +1,13 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import openai
-import os
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
+from transformers import pipeline
 
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)
 
-# Set OpenAI API key
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Initialize Hugging Face pipeline
+chat_model = pipeline("text-generation", model="gpt2")
 
 @app.route('/api/generate-questions', methods=['GET'])
 def generate_questions():
@@ -25,15 +20,8 @@ def generate_questions():
 
     prompt = f"Generate a list of interview questions for a {experience_level} {role} in a {interview_type} interview."
     try:
-        response = openai.Completion.create(
-            engine="text-davinci-003",
-            prompt=prompt,
-            max_tokens=150,
-            n=1,
-            stop=None,
-            temperature=0.7
-        )
-        questions = response.choices[0].text.strip().split("\n")
+        response = chat_model(prompt, max_length=150, num_return_sequences=1)
+        questions = response[0]["generated_text"].strip().split("\n")
         return jsonify({"questions": questions})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -48,18 +36,32 @@ def evaluate_answer():
 
     prompt = f"Evaluate the following interview answer for clarity, structure, and content:\n\n{answer}\n\nProvide detailed feedback."
     try:
-        response = openai.Completion.create(
-            engine="text-davinci-003",
-            prompt=prompt,
-            max_tokens=150,
-            n=1,
-            stop=None,
-            temperature=0.7
-        )
-        feedback = response.choices[0].text.strip()
+        response = chat_model(prompt, max_length=150, num_return_sequences=1)
+        feedback = response[0]["generated_text"].strip()
         return jsonify({"feedback": feedback})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route("/api/openai-chat", methods=["POST"])
+def openai_chat():
+    try:
+        data = request.get_json()
+        message = data.get("message")
+
+        if not message:
+            return jsonify({"error": "Message is required."}), 400
+
+        print("Message received from client:", message)
+
+        # Use Hugging Face model to generate a response
+        response = chat_model(message, max_length=150, num_return_sequences=1)
+
+        print("Response from Hugging Face model:", response)
+
+        return jsonify({"response": response[0]["generated_text"].strip()})
+    except Exception as e:
+        print("Internal server error:", str(e))
+        return jsonify({"error": "Internal server error."}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

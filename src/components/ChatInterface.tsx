@@ -1,10 +1,10 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { Send, Mic, User, Bot } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { getOpenAIResponse } from "../../frontend/api";
 
 type Message = {
   id: string;
@@ -26,10 +26,9 @@ const ChatInterface = () => {
   const [isRecording, setIsRecording] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (inputMessage.trim() === "") return;
 
-    // Add user message
     const newUserMessage: Message = {
       id: Date.now().toString(),
       content: inputMessage,
@@ -40,28 +39,25 @@ const ChatInterface = () => {
     setMessages((prev) => [...prev, newUserMessage]);
     setInputMessage("");
 
-    // Simulate bot response after a short delay
-    setTimeout(() => {
+    try {
+      const botResponseContent = await getOpenAIResponse(inputMessage);
       const botResponse: Message = {
         id: (Date.now() + 1).toString(),
-        content: getBotResponse(inputMessage),
+        content: botResponseContent,
         sender: "bot",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, botResponse]);
-    }, 1000);
-  };
-
-  const getBotResponse = (message: string): string => {
-    // This function would be replaced with actual AI processing
-    const responses = [
-      "Entiendo. ¿Puedes contarme más sobre eso?",
-      "Interesante. ¿Cómo puedo ayudarte con eso?",
-      "Gracias por compartir. ¿Hay algo específico que quieras saber?",
-      "Estoy procesando tu mensaje. ¿Puedes proporcionar más detalles?",
-      "¿Hay algo más en lo que pueda ayudarte hoy?",
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
+    } catch (error) {
+      console.error("Error fetching OpenAI response:", error);
+      const errorMessage: Message = {
+        id: (Date.now() + 2).toString(),
+        content: "Lo siento, hubo un problema al procesar tu mensaje. Por favor, inténtalo de nuevo más tarde.",
+        sender: "bot",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
