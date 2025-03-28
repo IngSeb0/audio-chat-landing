@@ -1,94 +1,34 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Send, Mic, User, Bot } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import React, { useState } from "react";
+import { Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
-import { getOpenAIResponse } from "../../frontend/api";
-
-type Message = {
-  id: string;
-  content: string;
-  sender: "user" | "bot";
-  timestamp: Date;
-};
 
 const ChatInterface = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      content: "Hola, ¿en qué puedo ayudarte hoy?",
-      sender: "bot",
-      timestamp: new Date(),
-    },
-  ]);
-  const [inputMessage, setInputMessage] = useState("");
-  const [isRecording, setIsRecording] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [conversationStarted, setConversationStarted] = useState(false);
+  const [output, setOutput] = useState<string | null>(null);
 
-  const handleSendMessage = async () => {
-    if (inputMessage.trim() === "") return;
-
-    const newUserMessage: Message = {
-      id: Date.now().toString(),
-      content: inputMessage,
-      sender: "user",
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, newUserMessage]);
-    setInputMessage("");
-
+  const handleStartConversation = async () => {
     try {
-      const botResponseContent = await getOpenAIResponse(inputMessage);
-      const botResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        content: botResponseContent,
-        sender: "bot",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, botResponse]);
+      console.log("Attempting to start conversation by running prueba.py...");
+      const response = await fetch("http://localhost:5000/api/run-prueba", {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setConversationStarted(true);
+        console.log("Conversation started successfully:", data.message);
+        setOutput(data.output);
+      } else {
+        console.error("Error from backend:", data.error);
+        setOutput(`Error: ${data.error}`);
+      }
     } catch (error) {
-      console.error("Error fetching OpenAI response:", error);
-      const errorMessage: Message = {
-        id: (Date.now() + 2).toString(),
-        content: "Lo siento, hubo un problema al procesar tu mensaje. Por favor, inténtalo de nuevo más tarde.",
-        sender: "bot",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      console.error("Error starting conversation:", error);
+      setOutput(`Error: ${error.message}`);
     }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  const toggleRecording = () => {
-    setIsRecording(!isRecording);
-    // This would integrate with Web Speech API or similar
-    if (!isRecording) {
-      console.log("Started recording voice input");
-    } else {
-      console.log("Stopped recording voice input");
-    }
-  };
-
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
   return (
     <div className="flex flex-col h-screen max-w-3xl mx-auto shadow-lg">
-      {/* Chat Header */}
       <div className="bg-white border-b p-4 flex items-center">
         <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
           <Bot className="text-blue-600" size={20} />
@@ -99,84 +39,27 @@ const ChatInterface = () => {
         </div>
       </div>
 
-      {/* Messages Container */}
       <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={cn(
-              "mb-4 max-w-[80%] flex flex-col",
-              message.sender === "user"
-                ? "ml-auto items-end"
-                : "mr-auto items-start"
-            )}
-          >
-            <div className="flex items-end gap-2">
-              {message.sender === "bot" && (
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mb-1">
-                  <Bot className="text-blue-600" size={16} />
-                </div>
-              )}
-              
-              <div
-                className={cn(
-                  "p-3 rounded-lg",
-                  message.sender === "user"
-                    ? "bg-blue-600 text-white rounded-br-none"
-                    : "bg-white text-gray-800 border rounded-bl-none"
-                )}
-              >
-                {message.content}
-              </div>
-              
-              {message.sender === "user" && (
-                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center mb-1">
-                  <User className="text-white" size={16} />
-                </div>
-              )}
-            </div>
-            <span className="text-xs text-gray-500 mt-1">
-              {formatTime(message.timestamp)}
-            </span>
+        {output && (
+          <div className="bg-white p-4 rounded shadow">
+            <h2 className="text-lg font-semibold">Output:</h2>
+            <pre className="bg-gray-100 p-2 rounded">{output}</pre>
           </div>
-        ))}
-        <div ref={messagesEndRef} />
+        )}
       </div>
 
-      {/* Input Area */}
       <div className="p-4 bg-white border-t">
-        <div className="flex gap-2">
-          <Textarea
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyDown={handleKeyPress}
-            placeholder="Escribe un mensaje..."
-            className="flex-1 resize-none"
-            rows={1}
-          />
-          <div className="flex gap-2">
-            <Button
-              onClick={toggleRecording}
-              variant={isRecording ? "destructive" : "outline"}
-              size="icon"
-              className={cn(
-                "rounded-full",
-                isRecording && "animate-pulse"
-              )}
-            >
-              <Mic />
-            </Button>
-            <Button
-              onClick={handleSendMessage}
-              variant="default"
-              size="icon"
-              className="rounded-full bg-blue-600"
-              disabled={inputMessage.trim() === ""}
-            >
-              <Send />
-            </Button>
-          </div>
-        </div>
+        {!conversationStarted ? (
+          <Button
+            onClick={handleStartConversation}
+            variant="default"
+            className="bg-blue-600 text-white w-full"
+          >
+            Iniciar Conversación
+          </Button>
+        ) : (
+          <p className="text-center text-gray-500">Conversación en curso...</p>
+        )}
       </div>
     </div>
   );
